@@ -64,12 +64,15 @@ jobs:
           "
           
           # Deploy backend files (excluding sensitive files)
+          # IMPORTANT: .env is excluded to prevent overwriting server configuration
           rsync -avz \
             -e "ssh -p 21098" \
             --exclude 'vendor' \
             --exclude '.env' \
+            --exclude '.env.*' \
             --exclude '.env.backup' \
             --exclude '.env.production' \
+            --exclude '.env.local' \
             --exclude 'node_modules' \
             --exclude 'storage/logs/*.log' \
             --exclude '.env.backup.*' \
@@ -81,20 +84,33 @@ jobs:
             ./ scepgtce@server254.web-hosting.com:$DEPLOY_PATH/
           
           # Restore .env file if it was backed up (in case rsync somehow removed it)
-          echo "🔒 Restoring .env file if needed..."
+          echo "🔒 Verifying and restoring .env file if needed..."
           ssh -p 21098 scepgtce@server254.web-hosting.com "
             cd $DEPLOY_PATH
             if [ ! -f .env ]; then
+              echo '⚠️  .env file is missing after deployment!'
               # Try to restore from most recent backup
               LATEST_BACKUP=\$(ls -t .env.backup.* 2>/dev/null | head -1)
               if [ -n \"\$LATEST_BACKUP\" ]; then
                 cp \"\$LATEST_BACKUP\" .env
-                echo '✅ .env restored from backup'
+                echo '✅ .env restored from backup: \$LATEST_BACKUP'
               else
-                echo '⚠️  WARNING: .env file is missing and no backup found!'
+                echo '❌ ERROR: .env file is missing and no backup found!'
+                echo '⚠️  You may need to manually create .env file on the server'
+                exit 1
               fi
             else
-              echo '✅ .env file exists on server'
+              echo '✅ .env file is safe and exists on server'
+              # Verify it's not empty
+              if [ ! -s .env ]; then
+                echo '⚠️  WARNING: .env file exists but is empty!'
+                # Try to restore from backup
+                LATEST_BACKUP=\$(ls -t .env.backup.* 2>/dev/null | head -1)
+                if [ -n \"\$LATEST_BACKUP\" ]; then
+                  cp \"\$LATEST_BACKUP\" .env
+                  echo '✅ .env restored from backup (was empty)'
+                fi
+              fi
             fi
           "
           
