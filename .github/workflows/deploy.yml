@@ -42,7 +42,7 @@ jobs:
 
       - name: Deploy Backend to Server
         run: |
-          DEPLOY_PATH="~/demo.grabdiz.co.uk/backend"
+          DEPLOY_PATH="~/api.grabdiz.co.uk"
           echo "📦 Deploying Laravel Backend to: $DEPLOY_PATH"
           
           # Backup .env file on server before deployment (if it exists)
