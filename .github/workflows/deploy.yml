@@ -64,7 +64,7 @@ jobs:
           "
           
           # Deploy backend files (excluding sensitive files)
-          # IMPORTANT: .env is excluded to prevent overwriting server configuration
+          # IMPORTANT: .env and .htaccess are excluded to prevent overwriting server configuration
           rsync -avz \
             -e "ssh -p 21098" \
             --exclude 'vendor' \
@@ -73,6 +73,8 @@ jobs:
             --exclude '.env.backup' \
             --exclude '.env.production' \
             --exclude '.env.local' \
+            --exclude '.htaccess' \
+            --exclude '**/.htaccess' \
             --exclude 'node_modules' \
             --exclude 'storage/logs/*.log' \
             --exclude '.env.backup.*' \
