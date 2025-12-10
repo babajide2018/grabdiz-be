@@ -28,15 +28,13 @@ jobs:
 
       - name: Install Composer dependencies
         run: |
-          # Clean vendor directory if it exists to avoid file deletion issues
-          if [ -d "vendor" ]; then
-            echo "🧹 Cleaning existing vendor directory..."
-            rm -rf vendor
-          fi
-          # Clear Composer cache
-          composer clear-cache || true
-          # Install dependencies
-          composer install --no-dev --optimize-autoloader --no-interaction
+          # Note: We don't need to install dependencies in GitHub Actions
+          # since vendor is excluded from rsync deployment.
+          # Dependencies will be installed on the server.
+          # However, if composer.json validation is needed, we can run:
+          echo "📋 Validating composer.json..."
+          composer validate --no-check-publish || true
+          echo "✅ Skipping local dependency installation (will install on server)"
 
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
@@ -106,7 +104,11 @@ jobs:
             if [ -f composer.json ]; then
               echo '🧹 Cleaning vendor directory if it exists...'
               if [ -d vendor ]; then
-                rm -rf vendor
+                # Make files writable before removal
+                chmod -R u+w vendor 2>/dev/null || true
+                rm -rf vendor || {
+                  echo '⚠️  Could not remove vendor directory, continuing with composer install...'
+                }
               fi
               echo '📦 Running composer install in $DEPLOY_PATH...'
               composer install --no-dev --optimize-autoloader --no-interaction
