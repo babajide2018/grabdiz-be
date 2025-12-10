@@ -1,0 +1,40 @@
+# Laravel
+/vendor/
+/node_modules/
+/.env
+/.env.backup
+/.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea
+/.vscode
+
+# Laravel specific
+/storage/*.key
+/storage/logs/*.log
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# Database
+/database/*.sqlite
+/database/*.sqlite-journal
+
+# Testing
+/coverage
+/.phpunit.cache
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

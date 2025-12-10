@@ -1,0 +1,129 @@
+name: Deploy Backend to Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, bcmath, pdo, pdo_mysql, fileinfo, gd, zip
+          coverage: none
+
+      - name: Setup Composer
+        uses: php-actions/composer@v6
+        with:
+          php_version: '8.2'
+
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 21098 server254.web-hosting.com >> ~/.ssh/known_hosts
+
+      - name: Deploy Backend to Server
+        run: |
+          DEPLOY_PATH="~/demo.grabdiz.co.uk/backend"
+          echo "📦 Deploying Laravel Backend to: $DEPLOY_PATH"
+          
+          # Backup .env file on server before deployment (if it exists)
+          echo "💾 Backing up existing .env file on server..."
+          ssh -p 21098 scepgtce@server254.web-hosting.com "
+            cd $DEPLOY_PATH
+            if [ -f .env ]; then
+              cp .env .env.backup.\$(date +%Y%m%d_%H%M%S)
+              echo '✅ .env backed up'
+            else
+              echo '⚠️  No .env file found to backup'
+            fi
+          "
+          
+          # Deploy backend files (excluding sensitive files)
+          rsync -avz \
+            -e "ssh -p 21098" \
+            --exclude 'vendor' \
+            --exclude '.env' \
+            --exclude '.env.backup' \
+            --exclude '.env.production' \
+            --exclude 'node_modules' \
+            --exclude 'storage/logs/*.log' \
+            --exclude '.env.backup.*' \
+            --exclude 'bootstrap/cache/*' \
+            --exclude 'storage/framework/cache/*' \
+            --exclude 'storage/framework/sessions/*' \
+            --exclude 'storage/framework/views/*' \
+            --exclude 'database/database.sqlite' \
+            ./ scepgtce@server254.web-hosting.com:$DEPLOY_PATH/
+          
+          # Restore .env file if it was backed up (in case rsync somehow removed it)
+          echo "🔒 Restoring .env file if needed..."
+          ssh -p 21098 scepgtce@server254.web-hosting.com "
+            cd $DEPLOY_PATH
+            if [ ! -f .env ]; then
+              # Try to restore from most recent backup
+              LATEST_BACKUP=\$(ls -t .env.backup.* 2>/dev/null | head -1)
+              if [ -n \"\$LATEST_BACKUP\" ]; then
+                cp \"\$LATEST_BACKUP\" .env
+                echo '✅ .env restored from backup'
+              else
+                echo '⚠️  WARNING: .env file is missing and no backup found!'
+              fi
+            else
+              echo '✅ .env file exists on server'
+            fi
+          "
+          
+          echo "🔧 Installing Composer dependencies on server..."
+          ssh -p 21098 scepgtce@server254.web-hosting.com "
+            cd $DEPLOY_PATH
+            if [ -f composer.json ]; then
+              echo '📦 Running composer install in $DEPLOY_PATH...'
+              composer install --no-dev --optimize-autoloader --no-interaction
+              if [ \$? -eq 0 ]; then
+                echo '✅ Composer dependencies installed successfully'
+              else
+                echo '❌ ERROR: composer install failed!'
+                exit 1
+              fi
+            else
+              echo '⚠️  composer.json not found in $DEPLOY_PATH'
+              exit 1
+            fi
+          " || {
+            echo "❌ ERROR: Failed to install Composer dependencies"
+            exit 1
+          }
+          
+          echo "🔗 Creating storage symlink..."
+          ssh -p 21098 scepgtce@server254.web-hosting.com "
+            cd $DEPLOY_PATH
+            # Use full PHP path to avoid cPanel EA4 wrapper issues
+            if [ ! -L public/storage ]; then
+              /usr/local/bin/php artisan storage:link
+              echo '✅ Storage symlink created'
+            else
+              echo '✅ Storage symlink already exists'
+            fi
+          "
+          
+          echo "✅ Backend deployment completed successfully!"
+
