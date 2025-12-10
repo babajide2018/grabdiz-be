@@ -28,6 +28,14 @@ jobs:
 
       - name: Install Composer dependencies
         run: |
+          # Clean vendor directory if it exists to avoid file deletion issues
+          if [ -d "vendor" ]; then
+            echo "🧹 Cleaning existing vendor directory..."
+            rm -rf vendor
+          fi
+          # Clear Composer cache
+          composer clear-cache || true
+          # Install dependencies
           composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Set up SSH key
@@ -96,6 +104,10 @@ jobs:
           ssh -p 21098 scepgtce@server254.web-hosting.com "
             cd $DEPLOY_PATH
             if [ -f composer.json ]; then
+              echo '🧹 Cleaning vendor directory if it exists...'
+              if [ -d vendor ]; then
+                rm -rf vendor
+              fi
               echo '📦 Running composer install in $DEPLOY_PATH...'
               composer install --no-dev --optimize-autoloader --no-interaction
               if [ \$? -eq 0 ]; then
