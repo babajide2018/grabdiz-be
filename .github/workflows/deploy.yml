@@ -148,13 +148,30 @@ jobs:
           echo "🔗 Creating storage symlink..."
           ssh -p 21098 scepgtce@server254.web-hosting.com "
             cd $DEPLOY_PATH
-            # Use full PHP path to avoid cPanel EA4 wrapper issues
+            # Remove existing symlink if it's broken
+            if [ -L public/storage ] && [ ! -e public/storage ]; then
+              echo '⚠️  Removing broken storage symlink...'
+              rm -f public/storage
+            fi
+            # Create storage symlink if it doesn't exist
             if [ ! -L public/storage ]; then
               /usr/local/bin/php artisan storage:link
               echo '✅ Storage symlink created'
             else
               echo '✅ Storage symlink already exists'
             fi
+            # Verify symlink is working
+            if [ -L public/storage ] && [ -e public/storage ]; then
+              echo '✅ Storage symlink verified and working'
+              ls -la public/storage | head -1
+            else
+              echo '❌ ERROR: Storage symlink is broken!'
+              exit 1
+            fi
+            # Set correct permissions on storage directory
+            chmod -R 755 storage/app/public 2>/dev/null || true
+            chmod -R 755 public/storage 2>/dev/null || true
+            echo '✅ Storage permissions set'
           "
           
           echo "✅ Backend deployment completed successfully!"
