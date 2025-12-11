@@ -19,10 +19,14 @@ class UploadController extends Controller
                 ]);
 
                 $path = $request->file('image')->store('uploads', 'public');
+                // Generate full URL pointing to backend domain (api.grabdiz.co.uk)
+                // Frontend is on different domain, so we need absolute URL
+                $appUrl = config('app.url', env('APP_URL', 'https://api.grabdiz.co.uk'));
+                $fullUrl = rtrim($appUrl, '/') . '/storage/' . $path;
                 return response()->json([
                     'success' => true,
                     'path' => $path,
-                    'url' => Storage::url($path), // Use Laravel's storage URL helper
+                    'url' => $fullUrl,
                 ]);
             }
 
@@ -40,11 +44,17 @@ class UploadController extends Controller
                     $files = [$files];
                 }
 
+                // Get backend URL for generating absolute storage URLs
+                $appUrl = config('app.url', env('APP_URL', 'https://api.grabdiz.co.uk'));
+
                 foreach ($files as $file) {
                     $path = $file->store('uploads', 'public');
+                    // Generate full URL pointing to backend domain (api.grabdiz.co.uk)
+                    // Frontend is on different domain, so we need absolute URL
+                    $fullUrl = rtrim($appUrl, '/') . '/storage/' . $path;
                     $uploadedFiles[] = [
                         'path' => $path,
-                        'url' => Storage::url($path), // Use Laravel's storage URL helper
+                        'url' => $fullUrl,
                         'originalName' => $file->getClientOriginalName(),
                     ];
                 }
