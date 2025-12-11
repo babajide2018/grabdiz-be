@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class UploadController extends Controller
 {
@@ -21,7 +22,7 @@ class UploadController extends Controller
                 return response()->json([
                     'success' => true,
                     'path' => $path,
-                    'url' => url('/api/storage/' . $path),
+                    'url' => Storage::url($path), // Use Laravel's storage URL helper
                 ]);
             }
 
@@ -43,7 +44,7 @@ class UploadController extends Controller
                     $path = $file->store('uploads', 'public');
                     $uploadedFiles[] = [
                         'path' => $path,
-                        'url' => url('/api/storage/' . $path),
+                        'url' => Storage::url($path), // Use Laravel's storage URL helper
                         'originalName' => $file->getClientOriginalName(),
                     ];
                 }
