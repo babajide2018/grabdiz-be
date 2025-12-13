@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product;
+use App\Models\ProductImage;
 
 class ProductController extends Controller
 {
@@ -50,7 +51,7 @@ class ProductController extends Controller
     public function publicShow($id)
     {
         try {
-            $product = Product::with('category')->find($id);
+            $product = Product::with(['category', 'images'])->find($id);
 
             if (!$product) {
                 \Log::info("Product not found with ID: {$id}");
@@ -78,7 +79,7 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::with('category')->get();
+        $products = Product::with(['category', 'images'])->get();
         return response()->json([
             'success' => true,
             'data' => $products
@@ -98,6 +99,11 @@ class ProductController extends Controller
             'in_stock' => 'boolean',
             'quantity' => 'integer|min:0',
             'featured' => 'boolean',
+            'images' => 'nullable|array',
+            'images.*.imageUrl' => 'nullable|string',
+            'images.*.altText' => 'nullable|string',
+            'images.*.sortOrder' => 'nullable|integer',
+            'images.*.isPrimary' => 'nullable|boolean',
         ]);
 
         // Ensure in_stock is set - default to true if quantity > 0, or use provided value
@@ -107,9 +113,24 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
+        // Handle images if provided
+        if ($request->has('images') && is_array($request->images)) {
+            foreach ($request->images as $index => $imageData) {
+                if (!empty($imageData['imageUrl'])) {
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => $imageData['imageUrl'],
+                        'alt_text' => $imageData['altText'] ?? null,
+                        'sort_order' => $imageData['sortOrder'] ?? $index,
+                        'is_primary' => $imageData['isPrimary'] ?? false,
+                    ]);
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $product
+            'data' => $product->load(['category', 'images'])
         ], 201);
     }
 
@@ -117,7 +138,7 @@ class ProductController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $product->load('category')
+            'data' => $product->load(['category', 'images'])
         ]);
     }
 
@@ -134,6 +155,11 @@ class ProductController extends Controller
             'in_stock' => 'boolean',
             'quantity' => 'integer|min:0',
             'featured' => 'boolean',
+            'images' => 'nullable|array',
+            'images.*.imageUrl' => 'nullable|string',
+            'images.*.altText' => 'nullable|string',
+            'images.*.sortOrder' => 'nullable|integer',
+            'images.*.isPrimary' => 'nullable|boolean',
         ]);
 
         // Ensure in_stock is set - default to true if quantity > 0, or use provided value
@@ -144,7 +170,29 @@ class ProductController extends Controller
             $validated['in_stock'] = $product->quantity > 0;
         }
 
+        // Handle images if provided
+        if ($request->has('images') && is_array($request->images)) {
+            // Delete existing images
+            $product->images()->delete();
+
+            // Create new images
+            foreach ($request->images as $index => $imageData) {
+                if (!empty($imageData['imageUrl'])) {
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => $imageData['imageUrl'],
+                        'alt_text' => $imageData['altText'] ?? null,
+                        'sort_order' => $imageData['sortOrder'] ?? $index,
+                        'is_primary' => $imageData['isPrimary'] ?? false,
+                    ]);
+                }
+            }
+        }
+
         $product->update($validated);
+
+        // Always reload with images, even if images weren't updated
+        $product->load(['category', 'images']);
 
         return response()->json([
             'success' => true,

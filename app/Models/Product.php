@@ -77,6 +77,14 @@ class Product extends Model
     }
 
     /**
+     * Get the images for the product.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
+    }
+
+    /**
      * Get the image URL attribute, ensuring it points to the backend domain.
      */
     public function getImageAttribute($value)
